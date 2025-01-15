@@ -7,6 +7,7 @@ before:
 builds:
   - id: "403unlockercli-linux"  # Unique ID for this build
     main: ./cmd/403unlockercli
+    binary: "403unlocker"
     env:
       - CGO_ENABLED=0
     goos:
@@ -17,6 +18,7 @@ builds:
 
   - id: "403unlockercli-windows"  # Unique ID for this build
     main: ./cmd/403unlockercli
+    binary: "403unlocker"
     env:
       - CGO_ENABLED=0
     goos:
@@ -26,6 +28,7 @@ builds:
 
   - id: "403unlockercli-darwin"  # Unique ID for this build
     main: ./cmd/403unlockercli
+    binary: "403unlocker"
     env:
       - CGO_ENABLED=0
     goos:
