@@ -1,12 +1,9 @@
 package check
 
 import (
-	"context"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -16,47 +13,38 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func ChangeDNS(dns string) *http.Client {
-	dialer := &net.Dialer{}
-	customResolver := &net.Resolver{
-		PreferGo: true,
-		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
-			dnsServer := fmt.Sprintf("%s:53", dns)
-			return dialer.DialContext(ctx, "udp", dnsServer)
-		},
-	}
-	customDialer := &net.Dialer{
-		Resolver: customResolver,
-	}
-	transport := &http.Transport{
-		DialContext: customDialer.DialContext,
-	}
-	client := &http.Client{
-		Transport: transport,
-	}
-	return client
-}
-
 func CheckWithDNS(c *cli.Context) error {
 	url := c.Args().First()
 	url = ensureHTTPS(url)
+
+	fmt.Println("URL: ", url)
 
 	// Print header
 	fmt.Println("\n+--------------------+------------+")
 	fmt.Printf("| %-18s | %-10s |\n", "DNS Server", "Status")
 	fmt.Println("+--------------------+------------+")
 
-	dnsList, err := ReadDNSFromFile("config/dns.conf")
+	dnsList, err := common.ReadDNSFromFile(common.DNS_CONFIG_FILE)
 	if err != nil {
-		fmt.Println(err)
-		return err
+		err = common.DownloadConfigFile(common.DNS_CONFIG_URL, common.DNS_CONFIG_FILE)
+		if err != nil {
+			return err
+		}
+
+		dnsList, err = common.ReadDNSFromFile(common.DNS_CONFIG_FILE)
+
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
 	}
+
 	var wg sync.WaitGroup
 	for _, dns := range dnsList {
 		wg.Add(1)
 		go func(dns string) {
 			defer wg.Done()
-			client := ChangeDNS(dns)
+			client := common.ChangeDNS(dns)
 			resp, err := client.Get(url)
 			if err != nil {
 				return
@@ -85,14 +73,6 @@ func CheckWithDNS(c *cli.Context) error {
 	return nil
 }
 
-func ReadDNSFromFile(filename string) ([]string, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	dnsServers := strings.Fields(string(data))
-	return dnsServers, nil
-}
 func DomainValidator(domain string) bool {
 	domainRegex := `^(http[s]?:\/\/)?([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}).*?$`
 	match, _ := regexp.MatchString(domainRegex, domain)
